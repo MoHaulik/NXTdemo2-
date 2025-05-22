@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NXT/WebXR</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23ffffff'/><text x='50' y='60' text-anchor='middle' font-size='40' fill='%23000000'>X</text></svg>" type="image/svg+xml">
+    <!-- Include UAParser.js for device detection -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/UAParser.js/1.0.2/ua-parser.min.js"></script>
+    <style>
+        /* General Styles */
+        body {
+            background-color: black;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Fade-out and Fade-in Animations */
+        .fade-out {
+            animation: fadeOut 0.5s ease-in-out forwards;
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Overlay Logo (Centered) */
+        #overlay-logo {
+            width: 30%;
+            max-width: 200px;
+            height: auto;
+            margin-bottom: 20px;
+            animation: hopIn 1s ease-out;
+        }
+
+        @keyframes hopIn {
+            0% {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Introduction Overlay */
+        #intro-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 1);
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* Intro Content (Text + Logo) */
+        #intro-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            color: white;
+            max-width: 800px;
+        }
+
+        #intro-content h1 {
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+
+        #intro-content p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
+        /* Bottom-Centered Buttons Container */
+        #intro-bottom-buttons {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        /* Tunnel Effect Styles */
+        .tunnel-wrapper {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0; 
+            left: 0;
+            perspective: 1000px;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .tunnel-wrapper .square {
+            position: absolute;
+            top: 50%; 
+            left: 50%;
+            transform: translate(-50%, -50%) translateZ(-1000px) scale(0);
+            opacity: 0;
+            width: 200vmax;
+            height: 200vmax;
+            border: 2px solid white;
+            box-shadow: 0px 60px 140px white;
+            backface-visibility: hidden;
+            border-radius: 15%;
+            animation: move-animation 12s infinite linear;
+        }
+
+        @keyframes move-animation {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) translateZ(-1000px) scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: translate(-50%, -50%) translateZ(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) translateZ(1000px) scale(1.5);
+            }
+        }
+
+        /* Root Variables */
+        :root {
+            --glow-hue: 222deg;
+            --shadow-hue: 180deg;
+            --spring-easing: linear(
+                0, 0.002, 0.01 0.9%, 0.038 1.8%, 0.156, 0.312 5.8%, 0.789 11.1%, 1.015 14.2%,
+                1.096, 1.157, 1.199, 1.224 20.3%, 1.231, 1.231, 1.226, 1.214 24.6%,
+                1.176 26.9%, 1.057 32.6%, 1.007 35.5%, 0.984, 0.968, 0.956, 0.949 42%,
+                0.946 44.1%, 0.95 46.5%, 0.998 57.2%, 1.007, 1.011 63.3%, 1.012 68.3%,
+                0.998 84%, 1
+            );
+            --spring-duration: 1.33s;
+        }
+
+        @property --shimmer {
+            syntax: "<angle>";
+            inherits: false;
+            initial-value: 33deg;
+        }
+
+        @keyframes shimmer {
+            0% {
+                --shimmer: 0deg;
+            }
+            100% {
+                --shimmer: 360deg;
+            }
+        }
+
+        @keyframes shine {
+            0% {
+                opacity: 0;
+            }
+            15% {
+                opacity: 1;
+            }
+            55% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes text {
+            0% {
+                background-position: 100% center;
+            }
+            100% {
+                background-position: -100% center;
+            }
+        }
+
+        /* Styled Button */
+        .styled-button {
+            position: relative;
+            padding: 10px 20px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            color: white;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: all var(--spring-duration) var(--spring-easing);
+            isolation: isolate;
+            box-shadow: 0 2px 3px 1px hsl(var(--glow-hue) 50% 20% / 50%),
+                inset 0 -10px 20px -10px hsla(var(--shadow-hue), 10%, 90%, 95%);
+            transform: scale(1);
+        }
+
+        .styled-button:hover:not(:active),
+        .styled-button.active {
+            transition-duration: calc(var(--spring-duration) * 0.5);
+            transform: scale(1.2);
+            box-shadow: 0 4px 8px -2px hsl(var(--glow-hue) 50% 20% / 50%),
+                inset 0 0 0 transparent;
+        }
+
+        .styled-button:active {
+            transform: scale(1.1);
+            transition-duration: calc(var(--spring-duration) * 0.5);
+        }
+
+        /* Shimmer & Glow */
+        .styled-button .shimmer {
+            position: absolute;
+            inset: -20px;
+            border-radius: inherit;
+            mask-image: conic-gradient(
+                from var(--shimmer, 0deg),
+                transparent 0%,
+                transparent 10%,
+                black 36%,
+                black 45%,
+                transparent 50%,
+                transparent 60%,
+                black 85%,
+                black 95%,
+                transparent 100%
+            );
+            mask-size: cover;
+            mix-blend-mode: plus-lighter;
+            animation: shimmer 1s linear infinite both;
+        }
+
+        .styled-button .shimmer::before,
+        .styled-button .shimmer::after {
+            transition: all 0.5s ease;
+            opacity: 0;
+            content: "";
+            border-radius: inherit;
+            position: absolute;
+            mix-blend-mode: color;
+            inset: 20px;
+            pointer-events: none;
+        }
+
+        .styled-button .shimmer::before {
+            box-shadow: 0 0 3px 2px hsl(var(--glow-hue) 20% 95%),
+                0 0 7px 4px hsl(var(--glow-hue) 20% 80%),
+                0 0 13px 4px hsl(var(--glow-hue) 50% 70%),
+                0 0 25px 5px hsl(var(--glow-hue) 100% 70%);
+            z-index: -1;
+        }
+
+        .styled-button .shimmer::after {
+            box-shadow: inset 0 0 0 1px hsl(var(--glow-hue) 70% 95%),
+                inset 0 0 2px 1px hsl(var(--glow-hue) 100% 80%),
+                inset 0 0 5px 2px hsl(var(--glow-hue) 100% 70%);
+            z-index: 2;
+        }
+
+        .styled-button .text {
+            color: white;
+        }
+
+        /* Success Message */
+        #success-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 255, 0, 0.2);
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 20px;
+            padding: 30px;
+            color: white;
+            text-align: center;
+            z-index: 40;
+            font-size: 18px;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 600px) {
+            #overlay-logo {
+                width: 50%;
+                max-width: 150px;
+            }
+
+            #intro-content h1 {
+                font-size: 24px;
+            }
+
+            #intro-content p {
+                font-size: 14px;
+            }
+
+            .styled-button {
+                font-size: 16px;
+                padding: 10px 15px;
+            }
+
+            #intro-bottom-buttons {
+                flex-direction: column;
+                gap: 20px;
+                bottom: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Introduction Overlay -->
+    <div id="intro-overlay">
+        <!-- Tunnel Effect Wrapper -->
+        <div class="tunnel-wrapper"></div>
+        
+        <!-- Intro Content (Text + Logo) -->
+        <div id="intro-content">
+            <svg id="overlay-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" alt="Logo">
+                <defs>
+                    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#cccccc;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <circle cx="100" cy="100" r="80" fill="url(#logoGradient)" stroke="#ffffff" stroke-width="3"/>
+                <text x="100" y="120" text-anchor="middle" font-size="60" font-family="Arial, sans-serif" fill="#000000" font-weight="bold">X</text>
+            </svg>
+            <h1>Welcome to NXT/WebXR</h1>
+            <p>
+                <strong>No downloads, no payments—just dive right in.</strong>
+                Swipe up or down to browse through a variety of XR games and experiences.  
+                Hit 'Launch' to jump straight in. Or let the loading bar take you there automatically. 
+                Once you've finished exploring, tap back to return to continue your journey. 
+                <em>Discover, experience, repeat—the rabbit hole has no end.</em>
+            </p>
+        </div>
+
+        <!-- Bottom-Centered Buttons -->
+        <div id="intro-bottom-buttons">
+            <!-- Existing "Explore WebXR" Button -->
+            <button id="start-button" class="styled-button">
+                <span class="text">Explore WebXR</span>
+                <div class="shimmer"></div>
+            </button>
+            <!-- "Open on Quest" Button (only shows on non-Quest devices) -->
+            <button id="open-on-quest-button" class="styled-button">
+                <span class="text">Open on Quest</span>
+                <div class="shimmer"></div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    <div id="success-message">
+        <h2>🚀 Ready to Explore!</h2>
+        <p>WebXR experiences would load here.<br>This is just the landing page demo.</p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // ---- TUNNEL EFFECT CODE ----
+            const tunnelWrapper = document.querySelector('.tunnel-wrapper');
+            const squareCount = 6;
+            const animationDuration = 10000;
+
+            for (let i = 0; i < squareCount; i++) {
+                const square = document.createElement('div');
+                square.classList.add('square');
+                const delay = i * (animationDuration / squareCount);
+                square.style.animationDelay = `${delay}ms`;
+                tunnelWrapper.appendChild(square);
+            }
+
+            // ---- DOM Elements ----
+            const introOverlay = document.getElementById('intro-overlay');
+            const startButton = document.getElementById('start-button');
+            const openOnQuestButton = document.getElementById('open-on-quest-button');
+            const successMessage = document.getElementById('success-message');
+
+            // Device detection for Quest
+            function isQuestHeadset() {
+                const parser = new UAParser();
+                const result = parser.getResult();
+                const browserName = result.browser.name || '';
+                const deviceModel = result.device.model || '';
+                const isOculusBrowser = browserName.includes('OculusBrowser');
+                const isQuestDevice = deviceModel.includes('Quest');
+                return isOculusBrowser || isQuestDevice;
+            }
+
+            function sendLinkToQuest(linkUrl) {
+                if (!linkUrl.startsWith('https://')) {
+                    alert('Error: The URL must start with "https://".');
+                    return;
+                }
+                const encodedUrl = encodeURIComponent(linkUrl);
+                const webLaunchEndpoint = `https://www.oculus.com/open_url/?url=${encodedUrl}`;
+                window.location.href = webLaunchEndpoint;
+            }
+
+            function initializePage() {
+                if (isQuestHeadset()) {
+                    openOnQuestButton.style.display = 'none';
+                } else {
+                    openOnQuestButton.addEventListener('click', function() {
+                        // Replace with your actual URL when deploying
+                        sendLinkToQuest(window.location.href);
+                    });
+                }
+            }
+            initializePage();
+
+            // Start button: show success message instead of loading videos
+            startButton.addEventListener('click', () => {
+                introOverlay.style.display = 'none';
+                successMessage.style.display = 'block';
+                
+                // Hide success message after 3 seconds and show intro again
+                setTimeout(() => {
+                    successMessage.style.display = 'none';
+                    introOverlay.style.display = 'flex';
+                }, 3000);
+            });
+        });
+    </script>
+</body>
+</html>
